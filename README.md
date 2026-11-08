@@ -20,8 +20,8 @@ Check hone wala content: text, photo, video, document/file, audio, voice, GIF, s
    ```bash
    python3 -m venv venv && source venv/bin/activate
    pip install -r requirements.txt
-   python gen_key.py          # ENCRYPTION_KEY generate karo
-   cp .env.example .env        # .env mein API_ID, API_HASH, BOT_TOKEN, ENCRYPTION_KEY bharo
+   cp .env.example .env        # .env mein API_ID, API_HASH, BOT_TOKEN bharo
+   # ENCRYPTION_KEY optional hai; chahiye to: python gen_key.py
    ```
 4. **Run:**
    ```bash
@@ -58,7 +58,7 @@ Yeh env variables daalo (OTP site pe nahi daalni padti, users khud bot ke andar 
 | `API_ID` | Haan | my.telegram.org |
 | `API_HASH` | Haan | my.telegram.org |
 | `BOT_TOKEN` | Haan | @BotFather |
-| `ENCRYPTION_KEY` | Haan | `python gen_key.py` |
+| `ENCRYPTION_KEY` | Nahi | `python gen_key.py`; khaali chhodo to sessions plain store honge |
 | `ALLOWED_USER_IDS` | Nahi | comma-separated user IDs; khaali = sabko allow |
 | `DEFAULT_LIMIT` | Nahi | `0` = full history |
 
@@ -81,8 +81,9 @@ Agar sirf apne liye chahiye, bina bot ke, to purane scripts bhi hain:
 - `python compare_cli.py @A @B` → terminal se direct.
 
 ## Security (zaroor padho)
-- **Operator ke paas sab logged-in accounts ka access aa jaata hai.** Sessions `ENCRYPTION_KEY` se encrypt hote hain, lekin key bhi operator ke paas hai. Users ko sirf tabhi login karna chahiye jab woh aap (operator) par bharosa karein. Bot `/login` par yeh warning dikhata hai.
-- `ENCRYPTION_KEY`, `BOT_TOKEN`, `API_HASH` sirf env variables mein rakho — code ya GitHub mein kabhi nahi. `.env` aur `data/` already `.gitignore` mein hain.
+- **Operator ke paas sab logged-in accounts ka access aa jaata hai.** Users ko sirf tabhi login karna chahiye jab woh aap (operator) par bharosa karein. Bot `/login` par yeh warning dikhata hai.
+- `ENCRYPTION_KEY` optional hai. Set karo to sessions disk pe encrypt honge (DB file leak ho to bhi safe). Khaali chhodoge to sessions `data/sessions.db` mein plain text mein rahenge — apne khud ke private bot (do-teen IDs) ke liye theek hai, bas us file ko private rakhna.
+- `BOT_TOKEN` aur `API_HASH` (aur ENCRYPTION_KEY agar use karo) sirf env variables mein rakho — code ya GitHub mein kabhi nahi. `.env` aur `data/` already `.gitignore` mein hain.
 - OTP chat mein plain na aaye isliye bot users ko digits ke beech space daalne ko kehta hai (`1 2 3 4 5`); bot phir sirf digits nikaalta hai.
 - Bot kuch delete/forward/post nahi karta, sirf channels **padhta** hai aur report bhejta hai.
 - Ek hi server IP se bahut saare accounts login karne par Telegram restriction laga sakta hai. Zyada users ho to dhyan rakho.

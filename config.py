@@ -12,7 +12,8 @@ API_HASH = os.getenv("API_HASH", "").strip()
 
 # Multi-user control bot (from @BotFather). Users log in through THIS bot.
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
-# Fernet key used to encrypt stored user sessions at rest. Generate with: python gen_key.py
+# Optional: Fernet key to encrypt stored user sessions at rest (python gen_key.py).
+# Leave empty to store sessions as plain text (ok for a private, self-run bot).
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "").strip()
 SESSIONS_DB_PATH = os.getenv("SESSIONS_DB_PATH", "data/sessions.db").strip()
 # Optional comma-separated Telegram user IDs allowed to use the bot. Empty = everyone.

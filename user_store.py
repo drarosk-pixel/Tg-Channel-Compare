@@ -1,12 +1,17 @@
 """
 Per-user session storage for the multi-user bot.
 
-Each Telegram user who logs in gets ONE row: their user id, phone and an
-encrypted Telethon session string. The session string grants full access to
-that user's account, so it is encrypted at rest with a Fernet key
-(ENCRYPTION_KEY). Without the key the bot refuses to start.
+Each Telegram user who logs in gets ONE row: their user id, phone and a
+Telethon session string. The session string grants full access to that
+user's account.
+
+Encryption is optional:
+  - ENCRYPTION_KEY set   -> sessions are encrypted at rest (recommended).
+  - ENCRYPTION_KEY empty -> sessions are stored as plain text (fine for a
+                            private bot you run yourself for a few accounts).
 """
 
+import logging
 import os
 import sqlite3
 import sys
@@ -14,14 +19,20 @@ import time
 
 from config import ENCRYPTION_KEY, SESSIONS_DB_PATH
 
+log = logging.getLogger("user_store")
+
 
 def _fernet():
+    """Return a Fernet instance if a key is set, else None (plaintext mode)."""
+    if not ENCRYPTION_KEY:
+        log.warning("ENCRYPTION_KEY not set: user sessions are stored UNENCRYPTED in %s. "
+                    "Keep that file private.", SESSIONS_DB_PATH)
+        return None
     try:
         from cryptography.fernet import Fernet
     except ImportError:
-        sys.exit("cryptography not installed. Run: pip install -r requirements.txt")
-    if not ENCRYPTION_KEY:
-        sys.exit("ENCRYPTION_KEY missing. Generate one with: python gen_key.py")
+        sys.exit("ENCRYPTION_KEY is set but 'cryptography' is not installed. "
+                 "Run: pip install -r requirements.txt  (or leave ENCRYPTION_KEY empty)")
     try:
         return Fernet(ENCRYPTION_KEY.encode())
     except Exception:
@@ -58,7 +69,8 @@ class UserStore:
             )
 
     def save_session(self, user_id: int, session_string: str, phone: str = "", tg_name: str = ""):
-        token = self._fernet.encrypt(session_string.encode())
+        raw = session_string.encode()
+        token = self._fernet.encrypt(raw) if self._fernet else raw
         now = int(time.time())
         with self._connect() as conn:
             conn.execute(
@@ -79,10 +91,12 @@ class UserStore:
             ).fetchone()
         if not row:
             return None
+        if not self._fernet:
+            return bytes(row["session"]).decode(errors="replace")
         try:
             return self._fernet.decrypt(row["session"]).decode()
         except Exception:
-            # Wrong/rotated key: treat as not logged in rather than crash.
+            # Wrong/rotated key, or data saved in plaintext mode: treat as not logged in.
             return None
 
     def get_info(self, user_id: int):
