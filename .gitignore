@@ -3,5 +3,6 @@ sessions/
 *.session
 *.session-journal
 reports/
+data/
 __pycache__/
 venv/

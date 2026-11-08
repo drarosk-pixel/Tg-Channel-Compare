@@ -1,47 +1,44 @@
-# Telegram Channel Compare Userbot
+# Telegram Channel Compare Bot
 
-Yeh tool aapke **apne Telegram account** se login karta hai (phone + OTP), koi bot channel mein add nahi karna padta. Do channels ki poori history padhta hai aur batata hai:
+Ek multi-user bot jo do Telegram channels ki history compare karta hai aur batata hai har channel mein kya **missing** hai, us content ke link ke saath.
 
-- **Channel B mein kya missing hai** jo Channel A mein hai, us post ke link ke saath (A mein)
-- **Channel A mein kya missing hai** jo B mein hai, link ke saath (B mein)
+Har user bot ke andar hi `/login` karke apna account connect karta hai (phone + OTP, aur 2-step password agar ho). Koi session string kisi site pe nahi daalni padti. Comparison har user ke **apne account** se chalta hai, isliye bot wahi channels padh sakta hai jinka woh user member hai.
 
-Har type ka content check hota hai: text, photo, video, document/file, audio, voice, GIF, sticker, poll, location, contact.
+Check hone wala content: text, photo, video, document/file, audio, voice, GIF, sticker, poll, location, contact.
 
-## Setup
+## Chalta kaise hai
+1. User bot ko `/login` bhejta hai.
+2. Bot phone number maangta hai → phir Telegram app pe aaya OTP → phir 2-step password (agar on hai).
+3. Bot us account ka session **encrypt karke** store karta hai (per user ek session).
+4. User `/compare A B` bhejta hai, bot uske account se dono channels scan karke report deta hai.
 
-1. **API ID / Hash lo:** https://my.telegram.org → login → *API development tools* → app banao → `api_id` aur `api_hash` copy karo.
-2. **Install:**
+## Setup (operator ke liye)
+
+1. **API ID / Hash:** https://my.telegram.org → *API development tools* → `api_id` aur `api_hash`.
+2. **Bot token:** Telegram pe @BotFather → `/newbot` → token copy karo.
+3. **Install aur configure:**
    ```bash
    python3 -m venv venv && source venv/bin/activate
    pip install -r requirements.txt
-   cp .env.example .env      # phir .env mein API_ID, API_HASH, PHONE bharo
+   python gen_key.py          # ENCRYPTION_KEY generate karo
+   cp .env.example .env        # .env mein API_ID, API_HASH, BOT_TOKEN, ENCRYPTION_KEY bharo
    ```
-3. **Login (sirf ek baar):**
+4. **Run:**
    ```bash
-   python login.py
+   python bot.py
    ```
-   Telegram app pe OTP aayega, woh daalo. 2-Step Verification on hai to password bhi maangega. Session `sessions/userbot.session` mein save ho jaata hai.
 
-## Use karne ke 2 tareeke
+Ab koi bhi user Telegram pe aapke bot ko khol ke `/login` kar sakta hai.
 
-### 1. Telegram se (userbot mode)
-```bash
-python userbot.py
+### Bot commands
 ```
-Ab apne Telegram ke **Saved Messages** mein type karo:
+/login            apna account connect karo
+/compare A B      poori history compare karo
+/compare A B 500  sirf latest 500 posts
+/status           login status
+/logout           apna session delete karo
+/cancel           chal raha login rok do
 ```
-.compare @otherchannel https://t.me/+MyPrivateInvite
-.compare @otherchannel @mychannel 500     # sirf latest 500 posts
-.help
-```
-Summary aur links wahi reply mein aayenge, aur poori list HTML + CSV file ke roop mein bhejega. Commands sirf aapke Saved Messages se chalte hain, koi aur trigger nahi kar sakta.
-
-### 2. Terminal se
-```bash
-python compare_cli.py @otherchannel -1001234567890
-python compare_cli.py @otherchannel @mychannel --limit 500
-```
-Report `reports/` folder mein banti hai.
 
 ### Channel kaise likhein
 | Format | Example |
@@ -50,43 +47,43 @@ Report `reports/` folder mein banti hai.
 | Private invite link | `https://t.me/+AbCdEf123` |
 | Private post link / ID | `https://t.me/c/1234567890/5` ya `-1001234567890` |
 
-Account us channel ka member hona chahiye (private ke liye). Tool khud se kisi channel ko join nahi karta.
+User us channel ka member hona chahiye. Bot khud se kisi channel ko join nahi karta.
 
-## Hosting (24/7 chalane ke liye)
+## Hosting (24/7)
 
-OTP server pe nahi daal sakte, isliye pehle **apne computer pe** `python login.py` chalao aur `y` daal ke `SESSION_STRING` copy karo.
+Yeh env variables daalo (OTP site pe nahi daalni padti, users khud bot ke andar login karte hain):
 
-Hosting (Railway, Render, Koyeb, Heroku, VPS) pe yeh environment variables daalo:
-
-| Variable | Zaruri? | Kahan se milega |
+| Variable | Zaruri? | Kahan se |
 |---|---|---|
-| `API_ID` | Haan | https://my.telegram.org → API development tools |
-| `API_HASH` | Haan | Wahi se |
-| `SESSION_STRING` | Haan | `python login.py` ka output |
+| `API_ID` | Haan | my.telegram.org |
+| `API_HASH` | Haan | my.telegram.org |
+| `BOT_TOKEN` | Haan | @BotFather |
+| `ENCRYPTION_KEY` | Haan | `python gen_key.py` |
+| `ALLOWED_USER_IDS` | Nahi | comma-separated user IDs; khaali = sabko allow |
 | `DEFAULT_LIMIT` | Nahi | `0` = full history |
 
-- Start command: `python userbot.py` (`Procfile` mein `worker` ke roop mein already hai)
-- Service type **worker / background** rakho, web nahi. Yeh koi port nahi kholta.
-- `PHONE` hosting pe nahi chahiye.
+- Start command: `python bot.py` (`Procfile` mein `worker` ke roop mein already hai).
+- Service type **worker/background** rakho, web nahi. Bot koi port nahi kholta.
+- `data/` folder (sessions DB) persistent disk pe rakho, warna restart pe sab users ko dobara `/login` karna padega. Alternatively kisi managed DB pe shift kar sakte ho.
 
 ## Content match kaise hota hai
-
 Ek post dusre channel mein "present" maani jaati hai agar inmein se koi bhi match ho:
+1. **Forward:** woh post dusre channel se forward ki gayi ho.
+2. **Same file:** same photo/document ID.
+3. **Re-upload:** same file size + type + duration.
+4. **Same text:** links, @mentions, emojis, punctuation hata ke text match. Isliye `@channelA` ko `@channelB` se replace karne par bhi match ho jaata hai.
+5. **Media caption:** sirf tab jab caption 20+ characters ka ho (chhote captions se galat match nahi hota).
 
-1. **Forward:** B mein woh post A se forward ki gayi hai
-2. **Same file:** same photo/document ID (file dobara bheji gayi)
-3. **Re-upload:** same file size + file type + duration (video/audio/document)
-4. **Same text:** text match, links, @mentions, emojis aur punctuation hata ke. Isliye `@channelA` ko `@channelB` se replace karne par bhi match ho jaata hai.
-5. **Media caption:** sirf tab, jab caption 20+ characters ka ho. "Episode 1" jaise chhote captions se galat match nahi hota.
+## Single-account mode (optional)
+Agar sirf apne liye chahiye, bina bot ke, to purane scripts bhi hain:
+- `python login.py` → ek baar OTP se login, session file/string banata hai.
+- `python userbot.py` → aapke Saved Messages se `.compare A B` chalta hai.
+- `python compare_cli.py @A @B` → terminal se direct.
 
-## Limitations
-- **Re-upload ki hui photo bina caption ke:** Telegram photo ko compress karta hai, isliye photo ID alag ho jaati hai. Aisi photo galti se "missing" dikh sakti hai.
-- **Edit/compress karke dobara upload ki gayi video** ka size alag hota hai, to woh bhi missing dikhegi agar caption 20 characters se chhota ho.
-- `limit` lagane par sirf latest N posts compare hoti hain. Purana content jo limit ke bahar hai, missing dikh sakta hai. Exact result ke liye limit 0 (full history) rakho.
-- Bade channels (50k+ posts) mein kuch minute lagte hain. Telegram rate limit (FloodWait) aaye to tool apne aap wait karta hai.
-
-## Security
-- `SESSION_STRING` aur `sessions/*.session` file se aapke account ka **poora access** milta hai. Leak ho jaye to Telegram → Settings → Devices mein woh session terminate karo.
-- `sessions/*.session` file se aapke account ka **poora access** milta hai. Ise kisi ko na do, GitHub par upload na karo (`.gitignore` mein already hai).
-- Tool sirf messages **padhta** hai. Woh kuch delete, forward ya post nahi karta, sirf aapke Saved Messages mein report bhejta hai.
-- Userbot Telegram ke rules ke grey area mein aata hai. Sirf padhna low-risk hai, phir bhi zarurat ho to alag account use karo.
+## Security (zaroor padho)
+- **Operator ke paas sab logged-in accounts ka access aa jaata hai.** Sessions `ENCRYPTION_KEY` se encrypt hote hain, lekin key bhi operator ke paas hai. Users ko sirf tabhi login karna chahiye jab woh aap (operator) par bharosa karein. Bot `/login` par yeh warning dikhata hai.
+- `ENCRYPTION_KEY`, `BOT_TOKEN`, `API_HASH` sirf env variables mein rakho — code ya GitHub mein kabhi nahi. `.env` aur `data/` already `.gitignore` mein hain.
+- OTP chat mein plain na aaye isliye bot users ko digits ke beech space daalne ko kehta hai (`1 2 3 4 5`); bot phir sirf digits nikaalta hai.
+- Bot kuch delete/forward/post nahi karta, sirf channels **padhta** hai aur report bhejta hai.
+- Ek hi server IP se bahut saare accounts login karne par Telegram restriction laga sakta hai. Zyada users ho to dhyan rakho.
+- User `/logout` se apna session hata sakta hai. Account se poori tarah hatana ho to Telegram → Settings → Devices mein woh session terminate karein.
